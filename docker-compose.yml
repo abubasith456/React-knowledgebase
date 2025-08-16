@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/kb_service.db
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - API_KEY=${API_KEY:-dev-api-key}
+      - MAX_TOKENS_THRESHOLD=7000
+      - DEFAULT_EMBEDDING_MODEL=jinaai/jina-embeddings-v3
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    depends_on:
+      - chroma
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
+      - CHROMA_SERVER_AUTH_TOKEN_TRANSPORT_HEADER=X-Chroma-Token
+      - CHROMA_SERVER_AUTH_CREDENTIALS=test-token
+    volumes:
+      - ./chroma_data:/chroma/chroma
+
+volumes:
+  chroma_data:
