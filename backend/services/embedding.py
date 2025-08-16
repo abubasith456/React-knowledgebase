@@ -8,13 +8,19 @@ from config import settings
 # Optional imports for embeddings
 try:
     if settings.embedding_enabled:
+        # Try to import sentence transformers
         from sentence_transformers import SentenceTransformer
         EMBEDDINGS_AVAILABLE = True
+        logging.info("Sentence Transformers loaded successfully")
     else:
         EMBEDDINGS_AVAILABLE = False
-except ImportError:
+        logging.info("Embeddings disabled via configuration")
+except ImportError as e:
     EMBEDDINGS_AVAILABLE = False
-    logging.warning("Sentence Transformers not available. Embedding operations will be disabled.")
+    logging.warning(f"Sentence Transformers not available: {e}. Embedding operations will be disabled.")
+except Exception as e:
+    EMBEDDINGS_AVAILABLE = False
+    logging.warning(f"Failed to load embedding dependencies: {e}. Embedding operations will be disabled.")
 
 
 class EmbeddingService:

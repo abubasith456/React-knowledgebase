@@ -1,4 +1,4 @@
-# Core FastAPI dependencies - Python 3.12 compatible
+# Core FastAPI dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 sqlalchemy==2.0.23
@@ -7,7 +7,10 @@ pydantic-settings==2.1.0
 python-multipart==0.0.6
 aiofiles==23.2.1
 
-# Document processing (no ML/AI dependencies)
+# Vector database (lightweight, no torch dependency)
+chromadb-client==0.4.22
+
+# Document processing
 PyPDF2==3.0.1
 python-docx==1.1.0
 python-pptx==0.6.23
@@ -26,5 +29,5 @@ python-jose==3.3.0
 # Environment
 python-dotenv==1.0.0
 
-# Basic utilities
+# Basic utilities (lightweight)
 numpy>=1.24.0

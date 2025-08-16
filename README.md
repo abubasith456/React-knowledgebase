@@ -47,6 +47,9 @@ A pure knowledge base service built with FastAPI (backend) and React + TypeScrip
 ### Prerequisites
 - Docker and Docker Compose
 - Git
+- Python 3.11+ (for local development)
+
+**Note**: If you're using Python 3.12, see [PYTHON312_INSTALL.md](PYTHON312_INSTALL.md) for specific compatibility instructions.
 
 ### Option 1: Full Setup (with AI/ML features)
 ```bash

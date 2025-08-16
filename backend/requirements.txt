@@ -7,12 +7,12 @@ python-multipart==0.0.6
 aiofiles==23.2.1
 
 # Vector database - optional/configurable
-chromadb==0.4.18
+chromadb==0.4.22
 
-# Embedding models - lightweight
+# Embedding models - use latest compatible versions
 sentence-transformers==2.2.2
-transformers==4.36.0
-torch==2.1.2  # Updated to support Python 3.12
+transformers==4.36.2
+torch>=2.2.0  # Latest version with Python 3.12 support
 
 # Document processing - minimal set
 PyPDF2==3.0.1
@@ -37,4 +37,4 @@ python-jose==3.3.0
 python-dotenv==1.0.0
 
 # Basic utilities
-numpy==1.26.2
+numpy>=1.24.0
