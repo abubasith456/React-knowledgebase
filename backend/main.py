@@ -85,7 +85,10 @@ async def health_check():
     return {
         "status": "healthy",
         "database": "connected",
-        "vector_store": "connected" if vector_health else "disconnected",
+        "vector_store": "connected" if vector_health else "disabled/disconnected",
+        "embedding_service": "enabled" if embedding_service.is_enabled() else "disabled",
+        "vector_search": "enabled" if vector_service.is_enabled() else "disabled",
+        "ocr": "enabled" if settings.ocr_enabled else "disabled",
         "timestamp": datetime.utcnow()
     }
 

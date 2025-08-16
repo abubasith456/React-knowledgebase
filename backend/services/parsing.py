@@ -7,23 +7,35 @@ import aiofiles
 import mimetypes
 
 # Document processing imports
-from docling.document_converter import DocumentConverter
-from docling.datamodel.base_models import InputFormat
-import easyocr
-from PIL import Image
 import PyPDF2
 from docx import Document as DocxDocument
 from pptx import Presentation
 import tiktoken
+from PIL import Image
 
 from config import settings
+
+# Optional imports for OCR
+try:
+    if settings.ocr_enabled:
+        import easyocr
+        OCR_AVAILABLE = True
+    else:
+        OCR_AVAILABLE = False
+except ImportError:
+    OCR_AVAILABLE = False
 
 
 class DocumentParser:
     def __init__(self):
-        self.converter = DocumentConverter()
-        self.ocr_reader = easyocr.Reader(['en']) if settings.ocr_enabled else None
         self.encoding = tiktoken.get_encoding("cl100k_base")  # GPT-4 encoding
+        self.ocr_reader = None
+        
+        if settings.ocr_enabled and OCR_AVAILABLE:
+            try:
+                self.ocr_reader = easyocr.Reader(['en'])
+            except Exception as e:
+                print(f"Warning: OCR initialization failed: {e}")
     
     async def parse_document(self, file_path: str, filename: str) -> Dict[str, Any]:
         """Parse document and extract text content"""
@@ -38,11 +50,11 @@ class DocumentParser:
                 content = await self._parse_pptx(file_path)
             elif file_ext in ['.txt', '.md']:
                 content = await self._parse_text(file_path)
-            elif file_ext in ['.png', '.jpg', '.jpeg']:
+            elif file_ext in ['.png', '.jpg', '.jpeg'] and self.ocr_reader:
                 content = await self._parse_image(file_path)
             else:
-                # Try Docling for other formats
-                content = await self._parse_with_docling(file_path)
+                # Fallback to text parsing
+                content = await self._parse_text_fallback(file_path)
             
             # Count tokens
             token_count = self._count_tokens(content)
@@ -54,7 +66,8 @@ class DocumentParser:
                 "file_type": file_ext,
                 "metadata": {
                     "parsing_method": self._get_parsing_method(file_ext),
-                    "original_filename": filename
+                    "original_filename": filename,
+                    "ocr_enabled": settings.ocr_enabled
                 }
             }
             
@@ -62,7 +75,7 @@ class DocumentParser:
             raise Exception(f"Failed to parse document: {str(e)}")
     
     async def _parse_pdf(self, file_path: str) -> str:
-        """Parse PDF using PyPDF2 and fallback to Docling"""
+        """Parse PDF using PyPDF2"""
         try:
             content = ""
             with open(file_path, 'rb') as file:
@@ -70,13 +83,9 @@ class DocumentParser:
                 for page in pdf_reader.pages:
                     content += page.extract_text() + "\n"
             
-            # If PyPDF2 extraction is poor, try Docling
-            if len(content.strip()) < 100:
-                content = await self._parse_with_docling(file_path)
-            
             return content.strip()
-        except:
-            return await self._parse_with_docling(file_path)
+        except Exception as e:
+            raise Exception(f"PDF parsing failed: {str(e)}")
     
     async def _parse_docx(self, file_path: str) -> str:
         """Parse DOCX using python-docx"""
@@ -86,8 +95,8 @@ class DocumentParser:
             for paragraph in doc.paragraphs:
                 content += paragraph.text + "\n"
             return content.strip()
-        except:
-            return await self._parse_with_docling(file_path)
+        except Exception as e:
+            raise Exception(f"DOCX parsing failed: {str(e)}")
     
     async def _parse_pptx(self, file_path: str) -> str:
         """Parse PPTX using python-pptx"""
@@ -99,19 +108,35 @@ class DocumentParser:
                     if hasattr(shape, "text"):
                         content += shape.text + "\n"
             return content.strip()
-        except:
-            return await self._parse_with_docling(file_path)
+        except Exception as e:
+            raise Exception(f"PPTX parsing failed: {str(e)}")
     
     async def _parse_text(self, file_path: str) -> str:
         """Parse text files"""
-        async with aiofiles.open(file_path, 'r', encoding='utf-8') as file:
-            content = await file.read()
-        return content
+        try:
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as file:
+                content = await file.read()
+            return content
+        except UnicodeDecodeError:
+            # Try with different encoding
+            try:
+                async with aiofiles.open(file_path, 'r', encoding='latin-1') as file:
+                    content = await file.read()
+                return content
+            except Exception as e:
+                raise Exception(f"Text parsing failed: {str(e)}")
+    
+    async def _parse_text_fallback(self, file_path: str) -> str:
+        """Fallback text parsing for unsupported formats"""
+        try:
+            return await self._parse_text(file_path)
+        except Exception:
+            return f"Could not parse file: {os.path.basename(file_path)}"
     
     async def _parse_image(self, file_path: str) -> str:
         """Parse images using OCR"""
         if not self.ocr_reader:
-            raise Exception("OCR is disabled")
+            raise Exception("OCR is not available")
         
         try:
             # Run OCR in thread pool to avoid blocking
@@ -131,25 +156,6 @@ class DocumentParser:
         except Exception as e:
             raise Exception(f"OCR failed: {str(e)}")
     
-    async def _parse_with_docling(self, file_path: str) -> str:
-        """Parse document using Docling converter"""
-        try:
-            # Run Docling in thread pool
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                self.converter.convert,
-                file_path
-            )
-            
-            # Extract text content
-            if result.document and result.document.main_text:
-                return result.document.main_text
-            else:
-                return ""
-        except Exception as e:
-            raise Exception(f"Docling parsing failed: {str(e)}")
-    
     def _count_tokens(self, text: str) -> int:
         """Count tokens in text using tiktoken"""
         try:
@@ -162,53 +168,55 @@ class DocumentParser:
     def _get_parsing_method(self, file_ext: str) -> str:
         """Get the parsing method used for the file type"""
         method_map = {
-            '.pdf': 'PyPDF2 + Docling fallback',
-            '.docx': 'python-docx + Docling fallback',
-            '.pptx': 'python-pptx + Docling fallback',
-            '.ppt': 'python-pptx + Docling fallback',
+            '.pdf': 'PyPDF2',
+            '.docx': 'python-docx',
+            '.pptx': 'python-pptx',
+            '.ppt': 'python-pptx',
             '.txt': 'direct text',
             '.md': 'direct text',
-            '.png': 'EasyOCR',
-            '.jpg': 'EasyOCR',
-            '.jpeg': 'EasyOCR'
+            '.png': 'EasyOCR' if self.ocr_reader else 'not supported',
+            '.jpg': 'EasyOCR' if self.ocr_reader else 'not supported',
+            '.jpeg': 'EasyOCR' if self.ocr_reader else 'not supported'
         }
-        return method_map.get(file_ext, 'Docling')
+        return method_map.get(file_ext, 'text fallback')
 
 
 class WebScraper:
     def __init__(self):
-        self.converter = DocumentConverter()
+        pass
     
     async def scrape_url(self, url: str, include_links: bool = False) -> Dict[str, Any]:
-        """Scrape web content using Docling"""
+        """Simple web scraping using httpx"""
         try:
-            # Use Docling to convert web content
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                self.converter.convert,
-                url
-            )
+            import httpx
             
-            content = ""
-            if result.document and result.document.main_text:
-                content = result.document.main_text
-            
-            # Count tokens
-            encoding = tiktoken.get_encoding("cl100k_base")
-            token_count = len(encoding.encode(content))
-            
-            return {
-                "raw_content": content,
-                "parsed_content": content,
-                "token_count": token_count,
-                "file_type": "web",
-                "metadata": {
-                    "source_url": url,
-                    "parsing_method": "Docling web scraper",
-                    "include_links": include_links
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, timeout=30.0)
+                response.raise_for_status()
+                
+                # Simple HTML text extraction
+                content = response.text
+                
+                # Basic HTML tag removal (very simple)
+                import re
+                content = re.sub(r'<[^>]+>', ' ', content)
+                content = re.sub(r'\s+', ' ', content).strip()
+                
+                # Count tokens
+                encoding = tiktoken.get_encoding("cl100k_base")
+                token_count = len(encoding.encode(content))
+                
+                return {
+                    "raw_content": content,
+                    "parsed_content": content,
+                    "token_count": token_count,
+                    "file_type": "web",
+                    "metadata": {
+                        "source_url": url,
+                        "parsing_method": "Simple HTTP + regex",
+                        "include_links": include_links
+                    }
                 }
-            }
-            
+                
         except Exception as e:
             raise Exception(f"Failed to scrape URL: {str(e)}")

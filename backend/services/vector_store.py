@@ -1,26 +1,43 @@
-import chromadb
-from chromadb.config import Settings as ChromaSettings
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 import uuid
 import asyncio
 
 from config import settings
 
+# Optional ChromaDB import
+try:
+    if settings.vector_store_enabled and settings.vector_store_type == "chromadb":
+        import chromadb
+        from chromadb.config import Settings as ChromaSettings
+        CHROMADB_AVAILABLE = True
+    else:
+        CHROMADB_AVAILABLE = False
+except ImportError:
+    CHROMADB_AVAILABLE = False
+    logging.warning("ChromaDB not available. Vector operations will be disabled.")
+
 
 class VectorStore:
     def __init__(self):
         self.client = None
         self.collection = None
+        self.enabled = settings.vector_store_enabled and CHROMADB_AVAILABLE
     
     async def initialize(self):
         """Initialize ChromaDB client and collection"""
+        if not self.enabled:
+            return
+            
         try:
-            # Create ChromaDB client
-            self.client = chromadb.HttpClient(
-                host=settings.chroma_host,
-                port=settings.chroma_port,
-                settings=ChromaSettings(allow_reset=True)
-            )
+            client_settings = settings.get_chroma_client_settings()
+            
+            if settings.is_chroma_cloud():
+                # Cloud configuration
+                self.client = chromadb.CloudClient(**client_settings)
+            else:
+                # Local configuration
+                self.client = chromadb.HttpClient(**client_settings)
             
             # Get or create collection
             try:
@@ -34,6 +51,8 @@ class VectorStore:
                 )
             
         except Exception as e:
+            logging.error(f"Failed to initialize vector store: {str(e)}")
+            self.enabled = False
             raise Exception(f"Failed to initialize vector store: {str(e)}")
     
     async def add_vectors(
@@ -43,6 +62,9 @@ class VectorStore:
         embeddings: List[List[float]]
     ) -> List[str]:
         """Add vectors to the collection"""
+        if not self.enabled:
+            return []
+            
         if not self.collection:
             await self.initialize()
         
@@ -89,6 +111,9 @@ class VectorStore:
         document_ids: Optional[List[int]] = None
     ) -> List[Dict[str, Any]]:
         """Search for similar vectors"""
+        if not self.enabled:
+            return []
+            
         if not self.collection:
             await self.initialize()
         
@@ -129,6 +154,9 @@ class VectorStore:
     
     async def delete_document_vectors(self, document_id: int):
         """Delete all vectors for a document"""
+        if not self.enabled:
+            return
+            
         if not self.collection:
             await self.initialize()
         
@@ -146,6 +174,9 @@ class VectorStore:
     
     async def get_collection_stats(self) -> Dict[str, Any]:
         """Get collection statistics"""
+        if not self.enabled:
+            return {"total_vectors": 0, "collection_name": "disabled"}
+            
         if not self.collection:
             await self.initialize()
         
@@ -159,13 +190,22 @@ class VectorStore:
             
             return {
                 "total_vectors": count,
-                "collection_name": settings.chroma_collection_name
+                "collection_name": settings.chroma_collection_name,
+                "enabled": True
             }
         except Exception as e:
-            raise Exception(f"Failed to get collection stats: {str(e)}")
+            return {
+                "total_vectors": 0,
+                "collection_name": settings.chroma_collection_name,
+                "enabled": False,
+                "error": str(e)
+            }
     
     async def health_check(self) -> bool:
         """Check if vector store is healthy"""
+        if not self.enabled:
+            return False
+            
         try:
             if not self.client:
                 await self.initialize()
@@ -192,6 +232,9 @@ class VectorSearchService:
         embeddings: List[List[float]]
     ) -> List[str]:
         """Index document chunks with embeddings"""
+        if not self.vector_store.enabled:
+            return []
+            
         try:
             # Delete existing vectors for this document
             await self.vector_store.delete_document_vectors(document_id)
@@ -212,13 +255,17 @@ class VectorSearchService:
         document_ids: Optional[List[int]] = None
     ) -> List[Dict[str, Any]]:
         """Search documents by embedding similarity"""
+        if not self.vector_store.enabled:
+            return []
+            
         return await self.vector_store.search_vectors(
             query_embedding, top_k, document_ids
         )
     
     async def delete_document(self, document_id: int):
         """Delete all vectors for a document"""
-        await self.vector_store.delete_document_vectors(document_id)
+        if self.vector_store.enabled:
+            await self.vector_store.delete_document_vectors(document_id)
     
     async def get_stats(self) -> Dict[str, Any]:
         """Get vector store statistics"""
@@ -227,3 +274,7 @@ class VectorSearchService:
     async def health_check(self) -> bool:
         """Check vector store health"""
         return await self.vector_store.health_check()
+    
+    def is_enabled(self) -> bool:
+        """Check if vector search is enabled"""
+        return self.vector_store.enabled

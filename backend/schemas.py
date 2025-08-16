@@ -26,13 +26,15 @@ class IndexingMode(str, Enum):
 
 
 class EmbeddingModel(str, Enum):
-    jina = "jinaai/jina-embeddings-v3"
-    qwen = "qwen3-0.6B"
+    mini_lm = "sentence-transformers/all-MiniLM-L6-v2"
+    mpnet = "sentence-transformers/all-mpnet-base-v2"
+    jina = "jinaai/jina-embeddings-v3"  # Optional - requires additional dependencies
+    qwen = "qwen3-0.6B"  # Optional - requires additional dependencies
 
 
 class IndexRequest(BaseModel):
     mode: IndexingMode = IndexingMode.auto
-    embedding_model: EmbeddingModel = EmbeddingModel.jina
+    embedding_model: EmbeddingModel = EmbeddingModel.mini_lm
     chunk_size: Optional[int] = None
     chunk_overlap: Optional[int] = None
 

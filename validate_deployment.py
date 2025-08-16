@@ -94,17 +94,25 @@ def validate_backend():
         try:
             with open("backend/requirements.txt", 'r') as f:
                 requirements = f.read()
-                key_deps = [
-                    "fastapi", "uvicorn", "sqlalchemy", "chromadb", 
-                    "docling", "sentence-transformers", "tiktoken"
-                ]
-                for dep in key_deps:
+                # Core dependencies (required)
+                core_deps = ["fastapi", "uvicorn", "sqlalchemy", "tiktoken"]
+                # Optional dependencies (for full setup)
+                optional_deps = ["chromadb", "sentence-transformers", "docling", "easyocr"]
+                
+                for dep in core_deps:
                     if dep in requirements.lower():
-                        print(f"✓ Dependency found: {dep}")
+                        print(f"✓ Core dependency found: {dep}")
                         results.append(True)
                     else:
-                        print(f"❌ Missing dependency: {dep}")
+                        print(f"❌ Missing core dependency: {dep}")
                         results.append(False)
+                
+                for dep in optional_deps:
+                    if dep in requirements.lower():
+                        print(f"✓ Optional dependency found: {dep}")
+                    else:
+                        print(f"ℹ️ Optional dependency not included: {dep}")
+                # Don't fail validation for missing optional dependencies
         except Exception as e:
             print(f"❌ Error reading requirements.txt: {e}")
             results.append(False)

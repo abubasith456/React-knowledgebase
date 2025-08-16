@@ -48,20 +48,47 @@ A pure knowledge base service built with FastAPI (backend) and React + TypeScrip
 - Docker and Docker Compose
 - Git
 
-### 1. Clone Repository
+### Option 1: Full Setup (with AI/ML features)
 ```bash
+# 1. Clone repository
 git clone <repository-url>
 cd knowledge-base-service
-```
 
-### 2. Environment Setup
-```bash
+# 2. Environment setup
 cp .env.example .env
 # Edit .env with your preferred settings
+
+# 3. Start all services (includes ChromaDB and embeddings)
+docker-compose up -d
 ```
 
-### 3. Start Services
+### Option 2: Minimal Setup (no AI/ML dependencies)
 ```bash
+# 1. Clone repository
+git clone <repository-url>
+cd knowledge-base-service
+
+# 2. Use minimal configuration
+cp .env.example .env
+# Set VECTOR_STORE_ENABLED=false and EMBEDDING_ENABLED=false
+
+# 3. Start minimal services (only document parsing and storage)
+docker-compose -f docker-compose.minimal.yml up -d
+```
+
+### Option 3: Cloud ChromaDB Setup
+```bash
+# 1. Clone and setup
+git clone <repository-url>
+cd knowledge-base-service
+
+# 2. Configure for Chroma Cloud
+cp .env.example .env
+# Set your Chroma Cloud credentials:
+# CHROMA_AUTH_TOKEN=your-token
+# CHROMA_API_KEY=your-api-key
+
+# 3. Start services
 docker-compose up -d
 ```
 
@@ -73,6 +100,12 @@ docker-compose up -d
 
 ## Configuration
 
+### Setup Options
+
+1. **Full Setup**: All features including AI/ML (requires `requirements.txt`)
+2. **Minimal Setup**: Basic document processing only (uses `requirements-minimal.txt`)
+3. **Cloud Setup**: Use Chroma Cloud instead of local ChromaDB
+
 ### Environment Variables (.env)
 
 ```bash
@@ -82,20 +115,41 @@ API_KEY=your-secret-api-key-here
 # Database
 DATABASE_URL=sqlite:///./data/kb_service.db
 
-# ChromaDB Configuration
+# Vector Storage (optional)
+VECTOR_STORE_ENABLED=true  # Set to false for minimal setup
+VECTOR_STORE_TYPE=chromadb
+
+# ChromaDB Configuration (Local)
 CHROMA_HOST=chroma
 CHROMA_PORT=8000
 CHROMA_COLLECTION_NAME=knowledge_base
 
+# ChromaDB Cloud Configuration (optional)
+# CHROMA_AUTH_TOKEN=your-chroma-cloud-auth-token
+# CHROMA_API_KEY=your-chroma-cloud-api-key
+# CHROMA_TENANT=your-tenant
+# CHROMA_DATABASE=your-database
+
 # Embedding Configuration
-DEFAULT_EMBEDDING_MODEL=jinaai/jina-embeddings-v3
-ALTERNATIVE_EMBEDDING_MODEL=qwen3-0.6B
+EMBEDDING_ENABLED=true  # Set to false for minimal setup
+DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+ALTERNATIVE_EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
 MAX_TOKENS_THRESHOLD=7000
+
+# Document Processing
+USE_SIMPLE_PARSING=true
+OCR_ENABLED=false  # Set to true if you need OCR for images
 
 # Chunking Configuration
 DEFAULT_CHUNK_SIZE=1000
 DEFAULT_CHUNK_OVERLAP=200
 ```
+
+### Dependency Management
+
+- **Full Setup**: Use `requirements.txt` (includes ML/AI dependencies)
+- **Minimal Setup**: Use `requirements-minimal.txt` (basic FastAPI only)
+- **Python 3.12 Compatible**: All dependencies tested with Python 3.12
 
 ## API Endpoints
 

@@ -1,34 +1,57 @@
 import asyncio
 from typing import List, Dict, Any, Optional
-import numpy as np
-from sentence_transformers import SentenceTransformer
+import logging
 import tiktoken
 
 from config import settings
+
+# Optional imports for embeddings
+try:
+    if settings.embedding_enabled:
+        from sentence_transformers import SentenceTransformer
+        EMBEDDINGS_AVAILABLE = True
+    else:
+        EMBEDDINGS_AVAILABLE = False
+except ImportError:
+    EMBEDDINGS_AVAILABLE = False
+    logging.warning("Sentence Transformers not available. Embedding operations will be disabled.")
 
 
 class EmbeddingService:
     def __init__(self):
         self.models = {}
         self.encoding = tiktoken.get_encoding("cl100k_base")
+        self.enabled = settings.embedding_enabled and EMBEDDINGS_AVAILABLE
     
-    async def get_model(self, model_name: str) -> SentenceTransformer:
+    async def get_model(self, model_name: str) -> Optional['SentenceTransformer']:
         """Get or load embedding model"""
+        if not self.enabled:
+            return None
+            
         if model_name not in self.models:
-            # Load model in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            model = await loop.run_in_executor(
-                None,
-                SentenceTransformer,
-                model_name
-            )
-            self.models[model_name] = model
+            try:
+                # Load model in thread pool to avoid blocking
+                loop = asyncio.get_event_loop()
+                model = await loop.run_in_executor(
+                    None,
+                    SentenceTransformer,
+                    model_name
+                )
+                self.models[model_name] = model
+            except Exception as e:
+                logging.error(f"Failed to load model {model_name}: {e}")
+                return None
         return self.models[model_name]
     
     async def embed_text(self, text: str, model_name: str) -> List[float]:
         """Generate embedding for text"""
+        if not self.enabled:
+            return []
+            
         try:
             model = await self.get_model(model_name)
+            if not model:
+                return []
             
             # Generate embedding in thread pool
             loop = asyncio.get_event_loop()
@@ -40,12 +63,18 @@ class EmbeddingService:
             
             return embedding.tolist()
         except Exception as e:
-            raise Exception(f"Failed to generate embedding: {str(e)}")
+            logging.error(f"Failed to generate embedding: {str(e)}")
+            return []
     
     async def embed_texts(self, texts: List[str], model_name: str) -> List[List[float]]:
         """Generate embeddings for multiple texts"""
+        if not self.enabled:
+            return []
+            
         try:
             model = await self.get_model(model_name)
+            if not model:
+                return []
             
             # Generate embeddings in thread pool
             loop = asyncio.get_event_loop()
@@ -57,7 +86,8 @@ class EmbeddingService:
             
             return [embedding.tolist() for embedding in embeddings]
         except Exception as e:
-            raise Exception(f"Failed to generate embeddings: {str(e)}")
+            logging.error(f"Failed to generate embeddings: {str(e)}")
+            return []
     
     def chunk_text(self, text: str, chunk_size: int, overlap: int) -> List[Dict[str, Any]]:
         """Chunk text by character count with overlap"""
@@ -91,13 +121,15 @@ class EmbeddingService:
     
     def chunk_text_auto(self, text: str, model_name: str) -> List[Dict[str, Any]]:
         """Auto-chunk text based on model's max token limit"""
-        # Get model max tokens (rough estimates)
+        # Get model max tokens (rough estimates for lightweight models)
         max_tokens_map = {
+            "sentence-transformers/all-MiniLM-L6-v2": 512,
+            "sentence-transformers/all-mpnet-base-v2": 512,
             "jinaai/jina-embeddings-v3": 8192,
             "qwen3-0.6B": 2048
         }
         
-        max_tokens = max_tokens_map.get(model_name, 1000)
+        max_tokens = max_tokens_map.get(model_name, 512)
         
         # Convert tokens to approximate character count
         # Rough estimate: 1 token = 4 characters
@@ -108,6 +140,8 @@ class EmbeddingService:
     
     def should_vectorize(self, token_count: int) -> bool:
         """Determine if content should be vectorized based on token count"""
+        if not self.enabled:
+            return False
         return token_count >= settings.max_tokens_threshold
     
     def _count_tokens(self, text: str) -> int:
@@ -117,6 +151,10 @@ class EmbeddingService:
             return len(tokens)
         except:
             return int(len(text.split()) * 1.3)
+    
+    def is_enabled(self) -> bool:
+        """Check if embedding service is enabled"""
+        return self.enabled
 
 
 class ChunkingService:
