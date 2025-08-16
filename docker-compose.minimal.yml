@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/kb_service.db
+      - API_KEY=${API_KEY:-dev-api-key}
+      - VECTOR_STORE_ENABLED=false
+      - EMBEDDING_ENABLED=false
+      - OCR_ENABLED=false
+      - USE_DOCLING_PARSING=true
+      - MAX_TOKENS_THRESHOLD=7000
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    command: ["sh", "-c", "pip install -r requirements-minimal.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"]
