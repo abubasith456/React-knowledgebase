@@ -131,15 +131,15 @@ const IndexingTab: React.FC<IndexingTabProps> = ({ projectId, documents, onDocum
               <label htmlFor="embedding_model" className="block text-sm font-medium text-gray-700 mb-2">
                 Embedding Model
               </label>
-              <select
-                id="embedding_model"
-                value={indexRequest.embedding_model}
-                onChange={(e) => setIndexRequest({...indexRequest, embedding_model: e.target.value as any})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="jinaai/jina-embeddings-v3">Jina Embeddings v3 (8K tokens)</option>
-                <option value="qwen3-0.6B">Qwen3 0.6B (2K tokens)</option>
-              </select>
+                             <select
+                 id="embedding_model"
+                 value={indexRequest.embedding_model}
+                 onChange={(e) => setIndexRequest({...indexRequest, embedding_model: e.target.value as any})}
+                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+               >
+                 <option value="sentence-transformers/all-MiniLM-L6-v2">MiniLM L6 v2 (Lightweight, 512 tokens)</option>
+                 <option value="sentence-transformers/all-mpnet-base-v2">MPNet Base v2 (Better quality, 512 tokens)</option>
+               </select>
             </div>
 
             {/* Manual Mode Settings */}

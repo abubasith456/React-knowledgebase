@@ -5,16 +5,16 @@ A pure knowledge base service built with FastAPI (backend) and React + TypeScrip
 ## Features
 
 ### 📄 Document Processing
-- **Multi-format support**: PDF, DOCX, PPTX, TXT, MD, PNG, JPG
-- **Advanced parsing**: Docling converter with OCR fallback
-- **Web scraping**: URL content extraction
+- **Multi-format support**: PDF, DOCX, PPTX, TXT, MD, HTML
+- **High-quality parsing**: Docling converter for accurate text extraction
+- **Web scraping**: URL content extraction with Docling
 - **Token counting**: Automatic text analysis
 
 ### 🔍 Intelligent Indexing
 - **Auto mode**: Automatic chunk size detection based on embedding model limits
 - **Manual mode**: Custom chunk size and overlap configuration
 - **Smart strategy**: <7K tokens stored as raw, ≥7K tokens vectorized
-- **Multiple models**: Jina Embeddings v3 (8K) or Qwen3 0.6B (2K)
+- **Lightweight models**: Sentence-Transformers (MiniLM, MPNet)
 
 ### 🔎 Hybrid Search
 - **Vector search**: Semantic similarity for large documents

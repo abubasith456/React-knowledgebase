@@ -7,7 +7,7 @@ PyTorch and some ML libraries don't have pre-built wheels for Python 3.12 yet, c
 ## Solutions (Choose One)
 
 ### Option 1: Minimal Setup (Recommended)
-**Best for**: Testing, development, basic document processing
+**Best for**: Testing, development, high-quality document processing
 
 ```bash
 cd backend
@@ -15,8 +15,9 @@ pip install -r requirements-minimal.txt
 ```
 
 **Features included**:
-- ✅ Document upload & parsing (PDF, DOCX, PPTX, TXT, MD)
-- ✅ Web scraping
+- ✅ Document upload & parsing (PDF, DOCX, PPTX, TXT, MD, HTML)
+- ✅ High-quality Docling parsing
+- ✅ Web scraping with Docling
 - ✅ Token counting
 - ✅ Raw content search
 - ❌ Vector embeddings

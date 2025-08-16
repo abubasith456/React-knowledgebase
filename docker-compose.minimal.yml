@@ -27,7 +27,7 @@ services:
       - VECTOR_STORE_ENABLED=false
       - EMBEDDING_ENABLED=false
       - OCR_ENABLED=false
-      - USE_SIMPLE_PARSING=true
+      - USE_DOCLING_PARSING=true
       - MAX_TOKENS_THRESHOLD=7000
     volumes:
       - ./backend:/app

@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     # OCR
     ocr_enabled: bool = False  # Disabled by default for minimal setup
     
-    # Document Processing
-    use_simple_parsing: bool = True  # Use simple parsers instead of Docling
+    # Document Processing - Docling is primary parser
+    use_docling_parsing: bool = True  # Use Docling for high-quality parsing
     
     # Development
     debug: bool = False
